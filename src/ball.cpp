@@ -8,7 +8,6 @@ void Ball::setup(){
     height = 40;
     speed = 850;
     angle = M_PI_4;
-
 }
 
 void Ball::move(float deltaTime){
@@ -30,19 +29,6 @@ float Ball::xCenter(){
 }
 float Ball::yCenter(){
     return y + height / 2;
-}
-
-void Ball::collision(){
-    if (angle < M_PI_2 || (angle > M_PI && angle < 3 * M_PI_2)){
-        angle += M_PI_2;
-    }
-    else {
-        angle += 3 * M_PI_2;
-    }
-    if (angle >= 2 * M_PI){
-        angle -= 2 * M_PI;
-    } 
-    speed += 50;
 }
 
 void Ball::resetRight(){

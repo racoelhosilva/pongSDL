@@ -7,7 +7,7 @@ CXXFLAGS+= -Wall -Wuninitialized -Werror
 CXXFLAGS+= -fsanitize=address -fsanitize=undefined
 
 # SDL2 FLAGS to correctly load SDL2 libraries
-SDL2FLAGS=`sdl2-config --libs --cflags`
+SDL2FLAGS= -lSDL2 -lSDL2_ttf
 
 # FILES to consider in the final executable
 CPP_FILES=./src/*.cpp

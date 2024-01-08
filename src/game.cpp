@@ -7,6 +7,7 @@
 #include <SDL2/SDL_render.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keycode.h>
+#include <SDL2/SDL_ttf.h>
 #include "ball.h"
 #include "paddle.h"
 #include "constants.h"
@@ -14,6 +15,7 @@
 
 SDL_Window * window = nullptr;
 SDL_Renderer * renderer = nullptr;
+TTF_Font * font = nullptr;
 bool GameIsRunning = false;
 int lastFrameTime = 0;
 
@@ -23,7 +25,7 @@ Ball ball;
 Paddle leftPaddle;
 Paddle rightPaddle;
 
-bool initializeWindow(){
+bool initialize(){
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0){
         std::cerr << "Error launching SDL2!\n";
         return false;
@@ -46,15 +48,24 @@ bool initializeWindow(){
         return false;
     }
 
+    if (TTF_Init() != 0){
+        std::cerr << "Error loading SDL TTF\n";
+        return false;
+    }
+    font = TTF_OpenFont("font/alterebro.ttf", 60);
+    if (font == nullptr){
+        std::cerr << "Error opening font alterebro.ttf\n";
+        return false;
+    }
+
     return true;
 }
 
 void setup(){
     ball.setup();
-    leftPaddle.leftSetup();
-    rightPaddle.rightSetup();
+    leftPaddle.leftSetup(renderer, font);
+    rightPaddle.rightSetup(renderer, font);
     lastColisionLeft = true;
-    std::cout << "Current Score: " << leftPaddle.score << " - " << rightPaddle.score << '\n';
 }
 
 void processInput(){
@@ -90,8 +101,7 @@ void update(){
         SDL_Delay(timeToWait);
     }
 
-    float deltaTime = (SDL_GetTicks() - lastFrameTime) / 1000.0; // in secondsme = (SDL_GetTicks() - lastFrameTime) / 1000.0; // in secondsme = (SDL_GetTicks() - lastFrameTime) / 1000.0; // in seconds
-
+    float deltaTime = (SDL_GetTicks() - lastFrameTime) / 1000.0; // in seconds
     lastFrameTime = SDL_GetTicks();
 
     leftPaddle.move(deltaTime);
@@ -102,37 +112,50 @@ void update(){
         bool checkX = (ball.x <= leftPaddle.x + leftPaddle.width) && (ball.x + ball.width >= leftPaddle.x);
         bool checkY = (ball.y + ball.height >= leftPaddle.y) && (ball.y <= leftPaddle.y + leftPaddle.height);
         if (checkX && checkY){
-            ball.collision();
+            double in = (leftPaddle.y+(leftPaddle.height/2))-(ball.y+(ball.height/2));
+            double nor = in/(leftPaddle.height/2);
+            ball.angle = (2 * M_PI) - (nor * (M_PI / 3));
+
             lastColisionLeft = true;
+            ball.speed += 100;
         }
     }
     else if (lastColisionLeft && ball.x > 1720){
         bool checkX = (ball.x <= rightPaddle.x + rightPaddle.width) && (ball.x + ball.width >= rightPaddle.x);
         bool checkY = (ball.y + ball.height >= rightPaddle.y) && (ball.y <= rightPaddle.y + rightPaddle.height);
         if (checkX && checkY){
-            ball.collision();
+            double in = (rightPaddle.y+(rightPaddle.height/2))-(ball.y+(ball.height/2));
+            double nor = in/(rightPaddle.height/2);
+            ball.angle = (nor * (M_PI / 3)) + M_PI;
+            
             lastColisionLeft = false;
+            ball.speed += 100;
         }
+    }
+    if (ball.angle >= 2 * M_PI){
+        ball.angle -= 2 * M_PI;
+    }
+    else if (ball.angle < 0){
+        ball.angle += 2 * M_PI;
     }
 
     bool rightReached = (ball.x + ball.width) >= 1920;
     bool leftReached = ball.x <= 0;
     if (rightReached){
         leftPaddle.score++;
+        leftPaddle.renderScore(renderer, font);
         ball.resetRight();
-        std::cout << "Current Score: " << leftPaddle.score << " - " << rightPaddle.score << '\n';
     }
     else if (leftReached){
         rightPaddle.score++;
+        rightPaddle.renderScore(renderer, font);
         ball.resetLeft();
-        std::cout << "Current Score: " << leftPaddle.score << " - " << rightPaddle.score << '\n';
     }
-    if (rightPaddle.score >= 10 || leftPaddle.score >= 10){
+    if (rightPaddle.score + leftPaddle.score >= 7){
         GameIsRunning = false;
     }
 
     ball.move(deltaTime);
-    
 }
 
 void render(){
@@ -160,8 +183,16 @@ void render(){
 
     SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255);
     SDL_RenderFillRect(renderer, &ballRectangle);
+    SDL_SetRenderDrawColor(renderer, leftPaddle.color.r, leftPaddle.color.g, leftPaddle.color.b, leftPaddle.color.a);
     SDL_RenderFillRect(renderer, &leftPaddleRectangle);
+    SDL_SetRenderDrawColor(renderer, rightPaddle.color.r, rightPaddle.color.g,rightPaddle.color.b, rightPaddle.color.a);
     SDL_RenderFillRect(renderer, &rightPaddleRectangle);
+
+    SDL_Rect leftScorePlace = {700, 50, 100,200};
+    SDL_RenderCopy(renderer, leftPaddle.renderedScore, nullptr, &leftScorePlace);
+
+    SDL_Rect rightScorePlace = {1120, 50, 100,200};
+    SDL_RenderCopy(renderer, rightPaddle.renderedScore, nullptr, &rightScorePlace);
 
     SDL_RenderPresent(renderer);
 
@@ -169,13 +200,15 @@ void render(){
 }
 
 void destroyWindow(){
+
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_CloseFont(font);
     SDL_Quit();
 }
 
 int main(){
-    GameIsRunning = initializeWindow();
+    GameIsRunning = initialize();
 
     setup();
 
