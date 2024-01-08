@@ -1,3 +1,4 @@
+#include <SDL2/SDL_assert.h>
 #include <SDL2/SDL_rect.h>
 #include <SDL2/SDL_scancode.h>
 #include <SDL2/SDL_timer.h>
@@ -8,6 +9,7 @@
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keycode.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL_mixer.h>
 #include "ball.h"
 #include "paddle.h"
 #include "constants.h"
@@ -16,6 +18,10 @@
 SDL_Window * window = nullptr;
 SDL_Renderer * renderer = nullptr;
 TTF_Font * font = nullptr;
+Mix_Chunk * paddleSound = nullptr;
+Mix_Chunk * wallSound = nullptr;
+Mix_Chunk * scoreSound = nullptr;
+
 bool GameIsRunning = false;
 int lastFrameTime = 0;
 
@@ -58,6 +64,18 @@ bool initialize(){
         return false;
     }
 
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) != 0){
+        std::cerr << "Error loading SDL Mixer\n";
+        return false;
+    }
+    paddleSound = Mix_LoadWAV("audio/paddle.wav");
+    wallSound = Mix_LoadWAV("audio/wall.wav");
+    scoreSound = Mix_LoadWAV("audio/score.wav");
+    if (paddleSound == nullptr || wallSound == nullptr || scoreSound == nullptr){
+        std::cerr << "Error opening audio files\n";
+        return false;
+    }
+
     return true;
 }
 
@@ -82,15 +100,6 @@ void processInput(){
         leftPaddle.moveDown();
     else
         leftPaddle.stop();
-
-    if(keystates[SDL_SCANCODE_UP]) 
-        rightPaddle.moveUp();
-    else if(keystates[SDL_SCANCODE_DOWN])      
-        rightPaddle.moveDown();
-    else
-        rightPaddle.stop();
-
-
 }
 
 void update(){
@@ -105,6 +114,35 @@ void update(){
     lastFrameTime = SDL_GetTicks();
 
     leftPaddle.move(deltaTime);
+    
+    int CPUInfoBounds = 600 + (leftPaddle.score - rightPaddle.score) * 80; // Difficulty multiplier
+    bool beforeHitInformCPU = (lastColisionLeft && ball.x > CPUInfoBounds);
+    bool afterHitInformCPU = (!lastColisionLeft && ball.x < CPUInfoBounds);
+    
+    if (beforeHitInformCPU){
+        if (ball.yCenter() > (rightPaddle.y + rightPaddle.height / 3)){
+            rightPaddle.moveDown();
+        }
+        else if (ball.yCenter() < (rightPaddle.y + rightPaddle.height / 3)){
+            rightPaddle.moveUp();
+        }
+    }
+    else if (afterHitInformCPU){
+        int rightPaddleCenter = rightPaddle.y + rightPaddle.height / 2;
+        if ((rightPaddleCenter) > 800){
+            rightPaddle.moveUp();
+        }
+        else if ((rightPaddleCenter) < 300){
+            rightPaddle.moveDown();
+        }
+        else if (rightPaddleCenter > 400 && rightPaddleCenter < 600){
+            rightPaddle.stop();
+        }
+    }
+    else {
+        rightPaddle.stop();
+    }
+
     rightPaddle.move(deltaTime);
     
     // Collisions
@@ -115,6 +153,8 @@ void update(){
             double in = (leftPaddle.y+(leftPaddle.height/2))-(ball.y+(ball.height/2));
             double nor = in/(leftPaddle.height/2);
             ball.angle = (2 * M_PI) - (nor * (M_PI / 3));
+
+            Mix_PlayChannel(-1, paddleSound, 0);
 
             lastColisionLeft = true;
             ball.speed += 100;
@@ -128,6 +168,9 @@ void update(){
             double nor = in/(rightPaddle.height/2);
             ball.angle = (nor * (M_PI / 3)) + M_PI;
             
+            Mix_PlayChannel(-1, paddleSound, 0);
+
+
             lastColisionLeft = false;
             ball.speed += 100;
         }
@@ -142,25 +185,37 @@ void update(){
     bool rightReached = (ball.x + ball.width) >= 1920;
     bool leftReached = ball.x <= 0;
     if (rightReached){
+        Mix_PlayChannel(-1, scoreSound, 0);
         leftPaddle.score++;
         leftPaddle.renderScore(renderer, font);
         ball.resetRight();
     }
     else if (leftReached){
+        Mix_PlayChannel(-1, scoreSound, 0);
         rightPaddle.score++;
         rightPaddle.renderScore(renderer, font);
         ball.resetLeft();
     }
-    if (rightPaddle.score + leftPaddle.score >= 7){
+    if (rightPaddle.score + leftPaddle.score >= 9){
         GameIsRunning = false;
     }
-
-    ball.move(deltaTime);
+    bool wallHit = false;
+    ball.move(deltaTime, &wallHit);
+    if (wallHit){
+        Mix_PlayChannel(-1, wallSound, 0);
+    }
 }
 
 void render(){
     SDL_SetRenderDrawColor(renderer, 28, 28, 28, 255);
     SDL_RenderClear(renderer);
+
+    // Field Decorations
+    SDL_SetRenderDrawColor(renderer, 222, 222, 222, 128);
+    for (int yVal = 10; yVal <= WINDOW_HEIGHT - 20; yVal += 40){
+        SDL_Rect square = {WINDOW_WIDTH / 2 - 5, yVal, 10, 20};
+        SDL_RenderFillRect(renderer, &square);
+    }
 
     SDL_Rect ballRectangle = {
         (int)ball.x,
@@ -181,18 +236,20 @@ void render(){
         (int) rightPaddle.height
     };
 
-    SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255);
-    SDL_RenderFillRect(renderer, &ballRectangle);
-    SDL_SetRenderDrawColor(renderer, leftPaddle.color.r, leftPaddle.color.g, leftPaddle.color.b, leftPaddle.color.a);
-    SDL_RenderFillRect(renderer, &leftPaddleRectangle);
-    SDL_SetRenderDrawColor(renderer, rightPaddle.color.r, rightPaddle.color.g,rightPaddle.color.b, rightPaddle.color.a);
-    SDL_RenderFillRect(renderer, &rightPaddleRectangle);
-
-    SDL_Rect leftScorePlace = {700, 50, 100,200};
+    SDL_Rect leftScorePlace = {WINDOW_WIDTH / 2 - 180, 50, 100,200};
     SDL_RenderCopy(renderer, leftPaddle.renderedScore, nullptr, &leftScorePlace);
 
-    SDL_Rect rightScorePlace = {1120, 50, 100,200};
+    SDL_Rect rightScorePlace = {WINDOW_WIDTH / 2 + 100, 50, 100,200};
     SDL_RenderCopy(renderer, rightPaddle.renderedScore, nullptr, &rightScorePlace);
+
+    SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255);
+    SDL_RenderFillRect(renderer, &ballRectangle);
+
+    SDL_SetRenderDrawColor(renderer, leftPaddle.color.r, leftPaddle.color.g, leftPaddle.color.b, leftPaddle.color.a);
+    SDL_RenderFillRect(renderer, &leftPaddleRectangle);
+    
+    SDL_SetRenderDrawColor(renderer, rightPaddle.color.r, rightPaddle.color.g,rightPaddle.color.b, rightPaddle.color.a);
+    SDL_RenderFillRect(renderer, &rightPaddleRectangle);
 
     SDL_RenderPresent(renderer);
 
@@ -201,9 +258,15 @@ void render(){
 
 void destroyWindow(){
 
+    leftPaddle.freeScore();
+    rightPaddle.freeScore();
+    Mix_FreeChunk(paddleSound);
+    Mix_FreeChunk(wallSound);
+    Mix_FreeChunk(scoreSound);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     TTF_CloseFont(font);
+    Mix_Quit();
     SDL_Quit();
 }
 

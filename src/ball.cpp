@@ -10,7 +10,7 @@ void Ball::setup(){
     angle = M_PI_4;
 }
 
-void Ball::move(float deltaTime){
+void Ball::move(float deltaTime, bool *wallHit){
     x += speed * cos(angle) * deltaTime;
     y += speed * sin(angle) * deltaTime;
 
@@ -18,9 +18,11 @@ void Ball::move(float deltaTime){
     bool topReached = y <= 0;
     if (bottomReached && (angle < M_PI)){
         angle = (2 * M_PI - angle); 
+        *wallHit = true;
     }
     else if (topReached && (angle > M_PI)){
         angle = (2 * M_PI - angle);
+        *wallHit = true;
     }
 }
 
@@ -34,8 +36,10 @@ float Ball::yCenter(){
 void Ball::resetRight(){
     x = 300; y = 520;
     speed = 850;
+    angle = 0;
 }
 void Ball::resetLeft(){
     x = 1620; y = 520;
     speed = 850;
+    angle = M_PI;
 }

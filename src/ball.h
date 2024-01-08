@@ -10,7 +10,7 @@ public:
     float angle;
 
     void setup();
-    void move(float deltaTime);
+    void move(float deltaTime, bool *wallHit);
 
     float xCenter();
     float yCenter();
