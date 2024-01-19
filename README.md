@@ -1,4 +1,6 @@
-# Pong SDL
+<h1 align="center">
+  Pong SDL
+</h1>
 
 This is my implementation of the classic Pong game, made using C++ and the Simple DirectMedia Layer (SDL2).  
 
