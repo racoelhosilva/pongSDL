@@ -81,7 +81,9 @@ bool initialize(){
 
 void setup(){
     ball.setup();
+    leftPaddle.color = LEFT_PADDLE_COLOR;
     leftPaddle.leftSetup(renderer, font);
+    rightPaddle.color = RIGHT_PADDLE_COLOR;
     rightPaddle.rightSetup(renderer, font);
     lastColisionLeft = true;
 }
@@ -126,7 +128,7 @@ void update(){
     leftPaddle.move(deltaTime);
     
     /* Implementation of the CPU paddle */
-    int CPUInfoBounds = 600 + (leftPaddle.score - rightPaddle.score) * 80; // Difficulty multiplier
+    int CPUInfoBounds = (600 + (leftPaddle.score - rightPaddle.score) * 80) * difficultyMultiplier;
     bool beforeHitInformCPU = (lastColisionLeft && ball.x > CPUInfoBounds);
     bool afterHitInformCPU = (!lastColisionLeft && ball.x < CPUInfoBounds);
     
@@ -217,7 +219,7 @@ void update(){
     }
 
     /* End Game Checker */
-    if (rightPaddle.score + leftPaddle.score >= 9){
+    if (rightPaddle.score + leftPaddle.score >= maxScore){
         GameIsRunning = false;
     }
 }

@@ -8,7 +8,6 @@ void Paddle::leftSetup(SDL_Renderer * renderer, TTF_Font * font){
     x = 80; y = 500;
     width = 20; height = 240;
     speed = 0;
-    color = {222,0,0,200};
     score = 0;
     renderScore(renderer, font);
 }
@@ -17,7 +16,6 @@ void Paddle::rightSetup(SDL_Renderer * renderer, TTF_Font * font){
     x = 1800; y = 500;
     width = 20; height = 240;
     speed = 0;
-    color = {0,0,222,200};
     score = 0;
     renderScore(renderer, font);
 }
