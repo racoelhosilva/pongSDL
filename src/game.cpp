@@ -90,21 +90,31 @@ void processInput(){
     SDL_Event event;
     const Uint8 *keystates = SDL_GetKeyboardState(NULL);
     
-    while(SDL_PollEvent(&event)) if(event.type == SDL_QUIT) GameIsRunning=false;
+    while(SDL_PollEvent(&event)) {
+        if(event.type == SDL_QUIT) {
+            GameIsRunning=false;
+        }
+    }
     
-    if(keystates[SDL_SCANCODE_ESCAPE]) GameIsRunning=false;
-    
-    if(keystates[SDL_SCANCODE_W]) 
+    if(keystates[SDL_SCANCODE_ESCAPE]) {
+        GameIsRunning=false;
+    }
+
+    if(keystates[SDL_SCANCODE_W]) {
         leftPaddle.moveUp();
-    else if(keystates[SDL_SCANCODE_S])      
+    }
+    else if(keystates[SDL_SCANCODE_S]) {
         leftPaddle.moveDown();
-    else
+
+    }      
+    else {
         leftPaddle.stop();
+    }
 }
 
 void update(){
 
-    // Better implementation with SDL_Delay
+    /* Delay before next frame */
     int timeToWait = FRAME_TARGET_TIME - (SDL_GetTicks() - lastFrameTime);
     if (timeToWait > 0 && (timeToWait > FRAME_TARGET_TIME)){
         SDL_Delay(timeToWait);
@@ -115,6 +125,7 @@ void update(){
 
     leftPaddle.move(deltaTime);
     
+    /* Implementation of the CPU paddle */
     int CPUInfoBounds = 600 + (leftPaddle.score - rightPaddle.score) * 80; // Difficulty multiplier
     bool beforeHitInformCPU = (lastColisionLeft && ball.x > CPUInfoBounds);
     bool afterHitInformCPU = (!lastColisionLeft && ball.x < CPUInfoBounds);
@@ -145,7 +156,7 @@ void update(){
 
     rightPaddle.move(deltaTime);
     
-    // Collisions
+    /* Ball Movement */
     if (!lastColisionLeft && ball.x < 200){
         bool checkX = (ball.x <= leftPaddle.x + leftPaddle.width) && (ball.x + ball.width >= leftPaddle.x);
         bool checkY = (ball.y + ball.height >= leftPaddle.y) && (ball.y <= leftPaddle.y + leftPaddle.height);
@@ -182,6 +193,7 @@ void update(){
         ball.angle += 2 * M_PI;
     }
 
+    /* Goal Checker */
     bool rightReached = (ball.x + ball.width) >= 1920;
     bool leftReached = ball.x <= 0;
     if (rightReached){
@@ -196,68 +208,73 @@ void update(){
         rightPaddle.renderScore(renderer, font);
         ball.resetLeft();
     }
-    if (rightPaddle.score + leftPaddle.score >= 9){
-        GameIsRunning = false;
-    }
+
+    /* Wall Hit Checker */
     bool wallHit = false;
     ball.move(deltaTime, &wallHit);
     if (wallHit){
         Mix_PlayChannel(-1, wallSound, 0);
     }
+
+    /* End Game Checker */
+    if (rightPaddle.score + leftPaddle.score >= 9){
+        GameIsRunning = false;
+    }
 }
 
 void render(){
+
+    /* Draw Background */
     SDL_SetRenderDrawColor(renderer, 28, 28, 28, 255);
     SDL_RenderClear(renderer);
 
-    // Field Decorations
+    /* Field Decorations */
     SDL_SetRenderDrawColor(renderer, 222, 222, 222, 128);
     for (int yVal = 10; yVal <= WINDOW_HEIGHT - 20; yVal += 40){
         SDL_Rect square = {WINDOW_WIDTH / 2 - 5, yVal, 10, 20};
         SDL_RenderFillRect(renderer, &square);
     }
 
+    /* Draw Scores */
+    SDL_Rect leftScorePlace = {WINDOW_WIDTH / 2 - 180, 50, 100,200};
+    SDL_RenderCopy(renderer, leftPaddle.renderedScore, nullptr, &leftScorePlace);
+    SDL_Rect rightScorePlace = {WINDOW_WIDTH / 2 + 100, 50, 100,200};
+    SDL_RenderCopy(renderer, rightPaddle.renderedScore, nullptr, &rightScorePlace);
+
+    /* Draw Ball */
     SDL_Rect ballRectangle = {
         (int)ball.x,
         (int)ball.y,
         (int)ball.width,
         (int)ball.height,
     };
+    SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255);
+    SDL_RenderFillRect(renderer, &ballRectangle);
+
+    /* Draw Left Paddle */
     SDL_Rect leftPaddleRectangle = {
         (int) leftPaddle.x,
         (int) leftPaddle.y,
         (int) leftPaddle.width,
         (int) leftPaddle.height
     };
+    SDL_SetRenderDrawColor(renderer, leftPaddle.color.r, leftPaddle.color.g, leftPaddle.color.b, leftPaddle.color.a);
+    SDL_RenderFillRect(renderer, &leftPaddleRectangle);
+
+    /* Draw Right Paddle*/
     SDL_Rect rightPaddleRectangle = {
         (int) rightPaddle.x,
         (int) rightPaddle.y,
         (int) rightPaddle.width,
         (int) rightPaddle.height
     };
-
-    SDL_Rect leftScorePlace = {WINDOW_WIDTH / 2 - 180, 50, 100,200};
-    SDL_RenderCopy(renderer, leftPaddle.renderedScore, nullptr, &leftScorePlace);
-
-    SDL_Rect rightScorePlace = {WINDOW_WIDTH / 2 + 100, 50, 100,200};
-    SDL_RenderCopy(renderer, rightPaddle.renderedScore, nullptr, &rightScorePlace);
-
-    SDL_SetRenderDrawColor(renderer, 222, 222, 222, 255);
-    SDL_RenderFillRect(renderer, &ballRectangle);
-
-    SDL_SetRenderDrawColor(renderer, leftPaddle.color.r, leftPaddle.color.g, leftPaddle.color.b, leftPaddle.color.a);
-    SDL_RenderFillRect(renderer, &leftPaddleRectangle);
-    
     SDL_SetRenderDrawColor(renderer, rightPaddle.color.r, rightPaddle.color.g,rightPaddle.color.b, rightPaddle.color.a);
     SDL_RenderFillRect(renderer, &rightPaddleRectangle);
 
     SDL_RenderPresent(renderer);
-
-    return;
 }
 
 void destroyWindow(){
-
     leftPaddle.freeScore();
     rightPaddle.freeScore();
     Mix_FreeChunk(paddleSound);
